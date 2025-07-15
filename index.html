@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>スピーカーデモ</title>
+  </head>
+  <body>
+    <h2>出力デバイスの選択</h2>
+    <div>
+      <label for="notificationDevice">通知用デバイス:</label>
+      <select id="notificationDevice"></select>
+    </div>
+    <div>
+      <label for="callDevice">通話用デバイス:</label>
+      <select id="callDevice"></select>
+    </div>
+
+    <h2>通話ボタン</h2>
+    <button id="call-btn">通話を開始</button>
+
+    <audio id="call-audio" src="call.mp3"></audio>
+    <audio id="notification-audio" src="notification.mp3"></audio>
+
+    <script>
+      async function requestPermissions() {
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+          console.error("マイクのアクセス許可が必要です:", err);
+        }
+      }
+
+      //   async function populateAudioOutputDevices() {
+      //     const devices = await navigator.mediaDevices.enumerateDevices();
+      //     const outputs = devices.filter(
+      //       (device) => device.kind === "audiooutput"
+      //     );
+
+      //     const callSelect = document.getElementById("callDevice");
+      //     const notificationSelect =
+      //       document.getElementById("notificationDevice");
+
+      //     // 初期化
+      //     callSelect.innerHTML = "";
+      //     notificationSelect.innerHTML = "";
+
+      //     outputs.forEach((device) => {
+      //       const option1 = document.createElement("option");
+      //       option1.value = device.deviceId;
+      //       option1.textContent =
+      //         device.label || `出力デバイス (${device.deviceId})`;
+      //       callSelect.appendChild(option1);
+
+      //       const option2 = option1.cloneNode(true);
+      //       notificationSelect.appendChild(option2);
+      //     });
+
+      //     // 最初に選択されたデバイスを適用
+      //     await applySinkId("call-audio", callSelect.value);
+      //     await applySinkId("notification-audio", notificationSelect.value);
+      //   }
+
+      async function populateAudioOutputDevices() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outputs = devices.filter(
+          (device) => device.kind === "audiooutput"
+        );
+
+        const callSelect = document.getElementById("callDevice");
+        const notificationSelect =
+          document.getElementById("notificationDevice");
+
+        callSelect.innerHTML = "";
+        notificationSelect.innerHTML = "";
+
+        let nonRealtekDeviceId = null;
+
+        outputs.forEach((device) => {
+          const label = device.label || `出力デバイス (${device.deviceId})`;
+
+          const option1 = document.createElement("option");
+          option1.value = device.deviceId;
+          option1.textContent = label;
+          callSelect.appendChild(option1);
+
+          const option2 = option1.cloneNode(true);
+          notificationSelect.appendChild(option2);
+
+          // Realtek を含まないデバイスを記憶
+          if (!nonRealtekDeviceId && !/realtek/i.test(label)) {
+            nonRealtekDeviceId = device.deviceId;
+          }
+        });
+
+        // 通知音には Realtek を避けたデバイスを自動選択
+        if (nonRealtekDeviceId) {
+          notificationSelect.value = nonRealtekDeviceId;
+        }
+
+        // 初期出力デバイスをセット
+        await applySinkId("call-audio", callSelect.value);
+        await applySinkId("notification-audio", notificationSelect.value);
+      }
+
+      async function applySinkId(audioElementId, deviceId) {
+        const audio = document.getElementById(audioElementId);
+        if (typeof audio.setSinkId === "function") {
+          try {
+            await audio.setSinkId(deviceId);
+            console.log(
+              `Audio output for ${audioElementId} set to ${deviceId}`
+            );
+          } catch (err) {
+            console.error(`Error setting sinkId for ${audioElementId}:`, err);
+          }
+        } else {
+          console.warn("setSinkId is not supported in this browser.");
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        await requestPermissions();
+        await populateAudioOutputDevices();
+
+        const callSelect = document.getElementById("callDevice");
+        const notificationSelect =
+          document.getElementById("notificationDevice");
+
+        callSelect.addEventListener("change", () => {
+          applySinkId("call-audio", callSelect.value);
+        });
+
+        notificationSelect.addEventListener("change", () => {
+          applySinkId("notification-audio", notificationSelect.value);
+        });
+
+        document.getElementById("call-btn").addEventListener("click", () => {
+          document.getElementById("call-audio").play();
+        });
+
+        // 5秒後に通知音再生
+        setTimeout(() => {
+          document.getElementById("notification-audio").play();
+        }, 5000);
+      });
+    </script>
+  </body>
+</html>
