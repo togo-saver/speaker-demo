@@ -30,36 +30,6 @@
         }
       }
 
-      //   async function populateAudioOutputDevices() {
-      //     const devices = await navigator.mediaDevices.enumerateDevices();
-      //     const outputs = devices.filter(
-      //       (device) => device.kind === "audiooutput"
-      //     );
-
-      //     const callSelect = document.getElementById("callDevice");
-      //     const notificationSelect =
-      //       document.getElementById("notificationDevice");
-
-      //     // 初期化
-      //     callSelect.innerHTML = "";
-      //     notificationSelect.innerHTML = "";
-
-      //     outputs.forEach((device) => {
-      //       const option1 = document.createElement("option");
-      //       option1.value = device.deviceId;
-      //       option1.textContent =
-      //         device.label || `出力デバイス (${device.deviceId})`;
-      //       callSelect.appendChild(option1);
-
-      //       const option2 = option1.cloneNode(true);
-      //       notificationSelect.appendChild(option2);
-      //     });
-
-      //     // 最初に選択されたデバイスを適用
-      //     await applySinkId("call-audio", callSelect.value);
-      //     await applySinkId("notification-audio", notificationSelect.value);
-      //   }
-
       async function populateAudioOutputDevices() {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const outputs = devices.filter(
@@ -73,7 +43,7 @@
         callSelect.innerHTML = "";
         notificationSelect.innerHTML = "";
 
-        let nonRealtekDeviceId = null;
+        let preferredNotificationDeviceId = null;
 
         outputs.forEach((device) => {
           const label = device.label || `出力デバイス (${device.deviceId})`;
@@ -86,15 +56,19 @@
           const option2 = option1.cloneNode(true);
           notificationSelect.appendChild(option2);
 
-          // Realtek を含まないデバイスを記憶
-          if (!nonRealtekDeviceId && !/realtek/i.test(label)) {
-            nonRealtekDeviceId = device.deviceId;
+          // "default" および "communications" を除いた最初のデバイスを通知用に記憶
+          if (
+            !preferredNotificationDeviceId &&
+            device.deviceId !== "default" &&
+            device.deviceId !== "communications"
+          ) {
+            preferredNotificationDeviceId = device.deviceId;
           }
         });
 
-        // 通知音には Realtek を避けたデバイスを自動選択
-        if (nonRealtekDeviceId) {
-          notificationSelect.value = nonRealtekDeviceId;
+        // 通知用デバイスに自動選択（default, communications を避ける）
+        if (preferredNotificationDeviceId) {
+          notificationSelect.value = preferredNotificationDeviceId;
         }
 
         // 初期出力デバイスをセット
