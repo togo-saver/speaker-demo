@@ -32,18 +32,15 @@
 
       async function populateAudioOutputDevices() {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const outputs = devices.filter(
-          (device) => device.kind === "audiooutput"
-        );
+        const outputs = devices.filter(device => device.kind === "audiooutput");
 
         const callSelect = document.getElementById("callDevice");
-        const notificationSelect =
-          document.getElementById("notificationDevice");
+        const notificationSelect = document.getElementById("notificationDevice");
 
         callSelect.innerHTML = "";
         notificationSelect.innerHTML = "";
 
-        let preferredNotificationDeviceId = null;
+        let speakerLikeDeviceId = null;
 
         outputs.forEach((device) => {
           const label = device.label || `出力デバイス (${device.deviceId})`;
@@ -56,19 +53,18 @@
           const option2 = option1.cloneNode(true);
           notificationSelect.appendChild(option2);
 
-          // "default" および "communications" を除いた最初のデバイスを通知用に記憶
+          // "speaker" や "スピーカー" を含むラベルを通知用に記憶（最初の一つのみ）
           if (
-            !preferredNotificationDeviceId &&
-            device.deviceId !== "default" &&
-            device.deviceId !== "communications"
+            !speakerLikeDeviceId &&
+            /speaker|スピーカー/i.test(label)
           ) {
-            preferredNotificationDeviceId = device.deviceId;
+            speakerLikeDeviceId = device.deviceId;
           }
         });
 
-        // 通知用デバイスに自動選択（default, communications を避ける）
-        if (preferredNotificationDeviceId) {
-          notificationSelect.value = preferredNotificationDeviceId;
+        // 通知用デバイスに自動選択（"speaker"/"スピーカー" を含むものがあれば）
+        if (speakerLikeDeviceId) {
+          notificationSelect.value = speakerLikeDeviceId;
         }
 
         // 初期出力デバイスをセット
