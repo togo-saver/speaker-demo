@@ -5,21 +5,20 @@
     <title>スピーカーデモ</title>
   </head>
   <body>
-    <h2>出力デバイスの選択</h2>
     <div>
-      <label for="notificationDevice">通知用デバイス:</label>
-      <select id="notificationDevice"></select>
+      <h2>通知音の出力先:</h2>
     </div>
-    <div>
-      <label for="callDevice">通話用デバイス:</label>
-      <select id="callDevice"></select>
-    </div>
+    <span id="defaultDeviceLabel">(取得中...)</span>
+    <h2>通話デバイスの選択</h2>
+    <label for="callDevice">通話用デバイス:</label>
+    <select id="callDevice"></select>
 
     <h2>通話ボタン</h2>
     <button id="call-btn">通話を開始</button>
 
     <audio id="call-audio" src="call.mp3"></audio>
-    <audio id="notification-audio" src="notification.mp3"></audio>
+    <audio id="notification-audio-default" src="notification.mp3"></audio>
+    <audio id="notification-audio-call" src="notification.mp3"></audio>
 
     <script>
       async function requestPermissions() {
@@ -32,44 +31,34 @@
 
       async function populateAudioOutputDevices() {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const outputs = devices.filter(device => device.kind === "audiooutput");
+        const outputs = devices.filter((d) => d.kind === "audiooutput");
 
         const callSelect = document.getElementById("callDevice");
-        const notificationSelect = document.getElementById("notificationDevice");
-
         callSelect.innerHTML = "";
-        notificationSelect.innerHTML = "";
-
-        let speakerLikeDeviceId = null;
 
         outputs.forEach((device) => {
           const label = device.label || `出力デバイス (${device.deviceId})`;
-
-          const option1 = document.createElement("option");
-          option1.value = device.deviceId;
-          option1.textContent = label;
-          callSelect.appendChild(option1);
-
-          const option2 = option1.cloneNode(true);
-          notificationSelect.appendChild(option2);
-
-          // "speaker" や "スピーカー" を含むラベルを通知用に記憶（最初の一つのみ）
-          if (
-            !speakerLikeDeviceId &&
-            /speaker|スピーカー/i.test(label)
-          ) {
-            speakerLikeDeviceId = device.deviceId;
-          }
+          const option = document.createElement("option");
+          option.value = device.deviceId;
+          option.textContent = label;
+          callSelect.appendChild(option);
         });
 
-        // 通知用デバイスに自動選択（"speaker"/"スピーカー" を含むものがあれば）
-        if (speakerLikeDeviceId) {
-          notificationSelect.value = speakerLikeDeviceId;
+        // 🔍 通知用デバイス（default）のラベルを表示
+        const defaultDevice = outputs.find((d) => d.deviceId === "default");
+        const defaultLabel =
+          defaultDevice?.label || "(デバイス名が取得できません)";
+        document.getElementById("defaultDeviceLabel").textContent =
+          defaultLabel;
+
+        const savedCall = localStorage.getItem("selectedCallDeviceId");
+        if (savedCall && callSelect.querySelector(`[value="${savedCall}"]`)) {
+          callSelect.value = savedCall;
         }
 
-        // 初期出力デバイスをセット
         await applySinkId("call-audio", callSelect.value);
-        await applySinkId("notification-audio", notificationSelect.value);
+        await applySinkId("notification-audio-default", "default");
+        await applySinkId("notification-audio-call", callSelect.value);
       }
 
       async function applySinkId(audioElementId, deviceId) {
@@ -77,14 +66,12 @@
         if (typeof audio.setSinkId === "function") {
           try {
             await audio.setSinkId(deviceId);
-            console.log(
-              `Audio output for ${audioElementId} set to ${deviceId}`
-            );
+            console.log(`✅ ${audioElementId} に出力デバイス設定: ${deviceId}`);
           } catch (err) {
-            console.error(`Error setting sinkId for ${audioElementId}:`, err);
+            console.error(`❌ ${audioElementId} の出力設定失敗:`, err);
           }
         } else {
-          console.warn("setSinkId is not supported in this browser.");
+          console.warn("setSinkId はサポートされていません。");
         }
       }
 
@@ -93,25 +80,22 @@
         await populateAudioOutputDevices();
 
         const callSelect = document.getElementById("callDevice");
-        const notificationSelect =
-          document.getElementById("notificationDevice");
-
-        callSelect.addEventListener("change", () => {
-          applySinkId("call-audio", callSelect.value);
-        });
-
-        notificationSelect.addEventListener("change", () => {
-          applySinkId("notification-audio", notificationSelect.value);
+        callSelect.addEventListener("change", async () => {
+          const val = callSelect.value;
+          localStorage.setItem("selectedCallDeviceId", val);
+          await applySinkId("call-audio", val);
+          await applySinkId("notification-audio-call", val);
         });
 
         document.getElementById("call-btn").addEventListener("click", () => {
           document.getElementById("call-audio").play();
         });
 
-        // 5秒後に通知音再生
+        // 通知音を3秒後に再生（両方同時）
         setTimeout(() => {
-          document.getElementById("notification-audio").play();
-        }, 5000);
+          document.getElementById("notification-audio-default").play();
+          document.getElementById("notification-audio-call").play();
+        }, 3000);
       });
     </script>
   </body>
